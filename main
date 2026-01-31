@@ -1,0 +1,83 @@
+import pymorphy3
+import inspect
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.probability import FreqDist
+from wordcloud import WordCloud
+from matplotlib import pyplot as plt
+
+nltk.download('punkt')
+nltk.download('punkt_tab')
+nltk.download('stopwords')
+
+def model(text):
+
+  sentences = sent_tokenize(text, language='russian')
+  stop_words = set(stopwords.words('russian'))
+  words = word_tokenize(text)
+  wc = WordCloud().generate(' '.join([i for i in words]))
+  plt.imshow(wc)
+  words = [word.lower() for word in words if word.isalpha()]
+  words = [word for word in words if word not in stop_words]
+  wc = WordCloud().generate(' '.join([i for i in words]))
+  plt.imshow(wc)
+  def getargspec(func):
+      """Совместимость с inspect.getargspec через getfullargspec"""
+      from collections import namedtuple
+      FullArgSpec = inspect.getfullargspec(func)
+      ArgSpec = namedtuple('ArgSpec', 'args varargs keywords defaults')
+      return ArgSpec(FullArgSpec.args, FullArgSpec.varargs, FullArgSpec.varkw, FullArgSpec.defaults)
+  inspect.getargspec = getargspec
+  morph = pymorphy3.MorphAnalyzer()
+  words = [morph.parse(word)[0].normal_form for word in words]
+  wc = WordCloud().generate(' '.join([i for i in words]))
+  plt.imshow(wc)
+  freq_dist = FreqDist(words)
+  sentence_scores = {}
+  for i, sentence in enumerate(sentences):
+      sentence_words = word_tokenize(sentence.lower())
+      morph = pymorphy3.MorphAnalyzer()
+      sentence_words = [morph.parse(word)[0].normal_form for word in sentence_words]
+      sentence_score = sum([freq_dist[word] for word in sentence_words if word in freq_dist])
+      sentence_scores[i] = sentence_score
+  sorted_scores = sorted(sentence_scores.items(), key=lambda x: x[1], reverse=True)
+  selected_sentences = sorted_scores[:1]
+  selected_sentences = sorted(selected_sentences)
+  # Формируем суммаризацию
+  summary = ' '.join([sentences[i] for i, _ in selected_sentences])
+  return summary
+
+import telebot
+from telebot import types
+import random
+token = ""
+bot = telebot.TeleBot(token)
+@bot.message_handler(commands=["start"])
+def qwerty(message):
+  bot.send_message(message.chat.id,"здравствуйте, данный бот позволяет найти в тексте предложение с наибольшим количеством информации.")
+@bot.message_handler(commands=["contact"])
+def rty(message):
+  markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+  m = types.KeyboardButton("отправить контакт", request_contact=True)
+  n = types.KeyboardButton("отмена")
+  markup.add(m, n)
+  bot.send_message(message.chat.id, "поделись контактом", reply_markup=markup)
+@bot.message_handler(content_types=["contact"])
+def kjh(message):
+  if message.contact is not None:
+    bot.send_message(message.chat.id, f"контакт получен {message.contact.phone_number}")
+@bot.message_handler(commands=["p"])
+def bnm(message):
+  i = [
+      "Стремитесь не к успеху, а к ценностям, которые он дает​",
+      " Сложнее всего начать действовать, все остальное зависит только от упорства. ",
+      "Надо любить жизнь больше, чем смысл жизни. "
+  ]
+  bot.send_message(message.chat.id, f"цитата дня {random.choice(i)}")
+@bot.message_handler(func=lambda message:True)
+def a(message):
+  bot.send_message(message.chat.id, "ожидайте, краткая выжимка готовится")
+  w = model(message.text)
+  bot.send_message(message.chat.id, w)
+bot.polling()
